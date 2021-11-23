@@ -126,6 +126,26 @@ func Noempty(v []string) []string {
 	return r
 }
 
+func Max(in []int) int {
+	max := in[0]
+	for i := range in {
+		if in[i] > max {
+			max = in[i]
+		}
+	}
+	return max
+}
+
+func Min(in []int) int {
+	min := in[0]
+	for i := range in {
+		if in[i] < min {
+			min = in[i]
+		}
+	}
+	return min
+}
+
 func Input(path string, sep string, noempty bool) []string {
 	buf, err := ioutil.ReadFile(path)
 	Must(err)
