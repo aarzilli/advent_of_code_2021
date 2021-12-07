@@ -30,21 +30,24 @@ func dist2(in []int, tgt int) int {
 	return r
 }
 
-func main() {
-	lines := Input("07.txt", "\n", true)
-	pf("len %d\n", len(lines))
-	in := Vatoi(Spac(lines[0], ",", -1))
-	pf("%d %d\n",Min(in), Max(in))
-	pf("example: %d\n", dist2for1(16, 5))
-	dist := dist2
-	mind := 10000000000
-	mintgt := -1
+func mindist(in []int, dist func([]int, int) int) (mintgt, mind int) {
+	mind = 0
+	mintgt = -1
 	for tgt := Min(in); tgt <= Max(in); tgt++ {
 		d := dist(in, tgt)
-		if d < mind {
+		if d < mind || mintgt == -1 {
 			mind = d
 			mintgt = tgt
 		}
 	}
+	return mintgt, mind
+}
+
+func main() {
+	lines := Input("07.txt", "\n", true)
+	in := Vatoi(Spac(lines[0], ",", -1))
+	mintgt, mind := mindist(in, dist1)
+	Sol(mintgt, mind)
+	mintgt, mind = mindist(in, dist2)
 	Sol(mintgt, mind)
 }
