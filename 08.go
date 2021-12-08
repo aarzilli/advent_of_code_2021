@@ -4,6 +4,7 @@ import (
 	. "./util"
 	"fmt"
 	"sort"
+	"strings"
 )
 
 func pf(fmtstr string, any ...interface{}) {
@@ -62,15 +63,25 @@ func removesegs(source, needle string) string {
 }
 
 func sortsegs(w string) string {
-	b := []byte(w)
-	sort.Slice(b, func(i, j int) bool { return b[i] < b[j] })
-	return string(b)
+	b := Spac(w, "", -1)
+	sort.Strings(b)
+	return strings.Join(b, "")
+}
+
+func findCond(words []string, cond func(string) bool) string {
+	for i, w := range words {
+		if cond(w) {
+			words[i] = ""
+			return w
+		}
+	}
+	panic("blah")
 }
 
 func deduce(words []string) map[string]int {
 	m := map[int][]string{}
 	for _, w := range words {
-		m[len(w)] = append(m[len(w)], w)
+		m[len(w)] = append(m[len(w)], sortsegs(w))
 	}
 	segments2digit := map[string]int{}
 
@@ -83,96 +94,40 @@ func deduce(words []string) map[string]int {
 	segments2digit[only(m, 7)] = 8
 
 	// find 6 (only 6 segment that doesn't contain both segments of 1)
-	ok := false
-	for i, segs := range m[6] {
-		if !containsAll(segs, one) {
-			segments2digit[segs] = 6
-			m[6][i] = ""
-			ok = true
-			break
-		}
-	}
-	if !ok {
-		panic("could not find 6")
-	}
-
-	var nine string
+	six := findCond(m[6], func(segs string) bool { return !containsAll(segs, one) })
+	segments2digit[six] = 6
 
 	// find 9 (only remaining 6 segment that contains all segments from 4)
-	ok = false
-	for i, segs := range m[6] {
-		if segs == "" {
-			continue
-		}
-		if containsAll(segs, four) {
-			segments2digit[segs] = 9
-			nine = segs
-			ok = true
-			m[6][i] = ""
-			break
-		}
-	}
-	if !ok {
-		panic("could not find 9")
-	}
-
-	// find 3 (only 5 segement that contains both segemnts of 1)
-	ok = false
-	for i, segs := range m[5] {
-		if containsAll(segs, one) {
-			segments2digit[segs] = 3
-			ok = true
-			m[5][i] = ""
-			break
-		}
-	}
-	if !ok {
-		panic("could not find 3")
-	}
-
-	// find 5 (only remaining 5 segment that contains all segments of 9 that don't belong to 1)
-	fivedetector := removesegs(nine, one)
-	ok = false
-	for i, segs := range m[5] {
-		if containsAll(segs, fivedetector) {
-			segments2digit[segs] = 5
-			ok = true
-			m[5][i] = ""
-			break
-		}
-	}
-	if !ok {
-		panic("could not find 5")
-	}
-
-	// find 2 (only remaining 5 segment)
-	segments2digit[nonstriken(m[5])] = 2
+	nine := findCond(m[6], func(segs string) bool { return containsAll(segs, four) })
+	segments2digit[nine] = 9
 
 	// 0 is the only remaining 6 segment
 	segments2digit[nonstriken(m[6])] = 0
 
-	//pf("segments2digit: %v\n", segments2digit)
-	//pf("%v\n", m)
+	// find 3 (only 5 segement that contains both segemnts of 1)
+	three := findCond(m[5], func(segs string) bool { return containsAll(segs, one) })
+	segments2digit[three] = 3
 
-	r := map[string]int{}
-	for k, v := range segments2digit {
-		r[sortsegs(k)] = v
-	}
-	return r
+	// find 5 (only remaining 5 segment that contains all segments of 9 that don't belong to 1)
+	fivedetector := removesegs(nine, one)
+	five := findCond(m[5], func(segs string) bool { return containsAll(segs, fivedetector) })
+	segments2digit[five] = 5
+
+	// find 2 (only remaining 5 segment)
+	segments2digit[nonstriken(m[5])] = 2
+
+	return segments2digit
 }
 
 func main() {
 	lines := Input("08.txt", "\n", true)
-	pf("len %d\n", len(lines))
 
 	r := 0
 	part2 := 0
 	for _, line := range lines {
 		fields := Spac(line, "|", 2)
-		//pf("%q\n", fields)
 		signals := Spac(fields[0], " ", -1)
 		segments2digit := deduce(signals)
-		pf("segment map: %v\n", segments2digit)
 		output := Spac(fields[1], " ", -1)
 		n := 0
 		for _, w := range output {
@@ -183,9 +138,8 @@ func main() {
 			d := segments2digit[sortsegs(w)]
 			n = n*10 + d
 		}
-		pf("%q %d\n", output, n)
 		part2 += n
 	}
-	Sol(r)
-	Sol(part2)
+	Sol(r)     // 330
+	Sol(part2) // 1010472
 }
