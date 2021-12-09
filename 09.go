@@ -16,9 +16,9 @@ type Point struct {
 	i, j int
 }
 
-func neighbors(i, j int) []Point {
+func neighbors(p0 Point) []Point {
 	r := []Point{}
-	for _, p := range []Point{Point{i - 1, j}, Point{i, j - 1}, Point{i, j + 1}, Point{i + 1, j}} {
+	for _, p := range []Point{Point{p0.i - 1, p0.j}, Point{p0.i, p0.j - 1}, Point{p0.i, p0.j + 1}, Point{p0.i + 1, p0.j}} {
 		if p.i < 0 || p.i >= len(M) {
 			continue
 		}
@@ -30,44 +30,28 @@ func neighbors(i, j int) []Point {
 	return r
 }
 
-func basinsize(i, j int) int {
-	BM := make([][]byte, len(M))
-	for i := range M {
-		BM[i] = make([]byte, len(M[i]))
-	}
-
-	basinvisit(BM, i, j)
-
-	r := 0
-	for i := range BM {
-		for j := range BM[i] {
-			//pf("%d", BM[i][j])
-			if BM[i][j] != 0 {
-				r++
-			}
-		}
-		//pf("\n")
-	}
-	return r
+func basinsize(p0 Point) int {
+	B := map[Point]bool{}
+	basinvisit(B, p0)
+	return len(B)
 }
 
-func basinvisit(BM [][]byte, i, j int) {
-	if BM[i][j] != 0 {
+func basinvisit(B map[Point]bool, p0 Point) {
+	if B[p0] {
 		return
 	}
 
-	BM[i][j] = 1
+	B[p0] = true
 
-	for _, p := range neighbors(i, j) {
-		if M[p.i][p.j] > M[i][j] && M[p.i][p.j] != 9 {
-			basinvisit(BM, p.i, p.j)
+	for _, p := range neighbors(p0) {
+		if M[p.i][p.j] > M[p0.i][p0.j] && M[p.i][p.j] != 9 {
+			basinvisit(B, p)
 		}
 	}
 }
 
 func main() {
 	lines := Input("09.txt", "\n", true)
-	pf("len %d\n", len(lines))
 	M = make([][]byte, 0, len(lines))
 	for i := range lines {
 		M = append(M, []byte(lines[i]))
@@ -80,24 +64,20 @@ func main() {
 	for i := range M {
 		for j := range M[i] {
 			ok := true
-			for _, p := range neighbors(i, j) {
+			for _, p := range neighbors(Point{i, j}) {
 				if M[i][j] >= M[p.i][p.j] {
 					ok = false
 					break
 				}
 			}
 			if ok {
-				sz := basinsize(i, j)
-				pf("low point %d %d (%d %d)\n", i, j, int(M[i][j])+1, sz)
+				sz := basinsize(Point{i, j})
 				risk += int(M[i][j]) + 1
 				basins = append(basins, sz)
 			}
 		}
 	}
 	Sol(risk)
-
 	sort.Ints(basins)
-
-	pf("%d %d %d\n", basins[len(basins)-1], basins[len(basins)-2], basins[len(basins)-3])
 	Sol(basins[len(basins)-1] * basins[len(basins)-2] * basins[len(basins)-3])
 }
