@@ -23,16 +23,14 @@ func printlist(n *Node) {
 	printlist(n.next)
 }
 
-func step(s string) string {
-	r := []byte{}
-	for i := 0; i < len(s)-1; i++ {
-		r = append(r, s[i])
-		if rules[s[i:i+1]] != "" {
-			r = append(r, rules[s[i:i+1]])
+func step(root *Node) {
+	for cur := root; cur != nil && cur.next != nil; cur = cur.next {
+		s := string(cur.lt) + string(cur.next.lt)
+		if rules[s] != "" {
+			cur.next = &Node{lt: rules[s][0], next: cur.next}
+			cur = cur.next
 		}
 	}
-	r = append(r, s[len(s)-1])
-	return r
 }
 
 func count(root *Node) (int, map[byte]int) {
