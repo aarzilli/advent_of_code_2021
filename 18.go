@@ -73,22 +73,22 @@ func reduce(p *Pair) *Pair {
 }
 
 func explode(p *Pair) (*Pair, bool) {
-	return explodeRec([]*Pair{}, p, 0)
+	return explodeRec(p, p, 0)
 }
 
-func explodeRec(path []*Pair, p *Pair, depth int) (rp *Pair, exploded bool) {
+func explodeRec(root *Pair, p *Pair, depth int) (rp *Pair, exploded bool) {
 	if depth == 3 {
 		if p.a != nil {
 			var exploded bool
 			if p.a.a != nil {
 				exploded = true
 				exploding := p.a
-				explodeOne(append(path, p), exploding)
+				explodeOne(root, exploding)
 				p.a = &Pair{nil, nil, 0}
 			} else if p.b.a != nil {
 				exploded = true
 				exploding := p.b
-				explodeOne(append(path, p), exploding)
+				explodeOne(root, exploding)
 				p.b = &Pair{nil, nil, 0}
 			}
 			return p, exploded
@@ -98,9 +98,9 @@ func explodeRec(path []*Pair, p *Pair, depth int) (rp *Pair, exploded bool) {
 	} else {
 		if p.a != nil {
 			var exploded bool
-			p.a, exploded = explodeRec(append(path, p), p.a, depth+1)
+			p.a, exploded = explodeRec(root, p.a, depth+1)
 			if !exploded {
-				p.b, exploded = explodeRec(append(path, p), p.b, depth+1)
+				p.b, exploded = explodeRec(root, p.b, depth+1)
 			}
 			return p, exploded
 		} else {
@@ -109,54 +109,35 @@ func explodeRec(path []*Pair, p *Pair, depth int) (rp *Pair, exploded bool) {
 	}
 }
 
-func explodeOne(path []*Pair, expl *Pair) {
+func explodeOne(root *Pair, expl *Pair) {
 	if expl.a.a != nil {
 		panic("depth error")
 	}
 	if expl.b.a != nil {
 		panic("depth error")
 	}
-	addLeft(path, expl, expl.a.val)
-	addRight(path, expl, expl.b.val)
-}
+	var lvs []*Pair
+	leaves(root, &lvs)
 
-func addLeft(path []*Pair, expl *Pair, val int) {
-	if len(path) == 0 {
-		return // nothing to the left
-	}
-	parent := path[len(path)-1]
-	if parent.a == expl {
-		addLeft(path[:len(path)-1], parent, val)
-	} else {
-		addRightDown(parent.a, val)
-	}
-}
-
-func addRight(path []*Pair, expl *Pair, val int) {
-	if len(path) == 0 {
-		return // nothing to the right
-	}
-	parent := path[len(path)-1]
-	if parent.a == expl {
-		addLeftDown(parent.b, val)
-	} else {
-		addRight(path[:len(path)-1], parent, val)
+	for i := range lvs {
+		if lvs[i] == expl.a {
+			if i-1 >= 0 {
+				lvs[i-1].val += expl.a.val
+			}
+			if i+2 < len(lvs) {
+				lvs[i+2].val += expl.b.val
+			}
+			break
+		}
 	}
 }
 
-func addRightDown(p *Pair, val int) {
-	if p.a == nil {
-		p.val += val
+func leaves(p *Pair, lvs *[]*Pair) {
+	if p.a != nil {
+		leaves(p.a, lvs)
+		leaves(p.b, lvs)
 	} else {
-		addRightDown(p.b, val)
-	}
-}
-
-func addLeftDown(p *Pair, val int) {
-	if p.a == nil {
-		p.val += val
-	} else {
-		addLeftDown(p.a, val)
+		*lvs = append(*lvs, p)
 	}
 }
 
@@ -185,18 +166,8 @@ func mag(p *Pair) int {
 	}
 }
 
-func roundcheck(n int) {
-	pf("%d %d\n", n/2, (n+1)/2)
-}
-
 func main() {
 	lines := Input("18.txt", "\n", true)
-	pf("len %d\n", len(lines))
-
-	{
-		x, _ := parseOne("[[9,1],[1,9]]")
-		pf("%d\n", mag(x))
-	}
 
 	var acc *Pair
 	for _, line := range lines {
