@@ -3,7 +3,6 @@ package main
 import (
 	. "./util"
 	"fmt"
-	"sort"
 )
 
 func pf(fmtstr string, any ...interface{}) {
@@ -15,32 +14,29 @@ type Point struct {
 }
 
 type Scanner struct {
+	id   int
 	zero Point
 	pts  []Point
 }
 
-func transposed(s *Scanner, i int, z Point) *Scanner {
-	// returns transposed version of s where point s.pts[i] equals z
+func transpose(s *Scanner, i int, z Point) {
+	// transposes s to where point s.pts[i] equals z
 
 	dx := z.x - s.pts[i].x
 	dy := z.y - s.pts[i].y
 	dz := z.z - s.pts[i].z
-
-	rs := &Scanner{}
 
 	for i := range s.pts {
 		rp := s.pts[i]
 		rp.x = rp.x + dx
 		rp.y = rp.y + dy
 		rp.z = rp.z + dz
-		rs.pts = append(rs.pts, rp)
+		s.pts[i] = rp
 	}
 
-	rs.zero.x = dx
-	rs.zero.y = dy
-	rs.zero.z = dz
-
-	return rs
+	s.zero.x += dx
+	s.zero.y += dy
+	s.zero.z += dz
 }
 
 func cos(a int) int {
@@ -73,7 +69,7 @@ func sin(a int) int {
 	}
 }
 
-func rotated(s *Scanner, roll, pitch, yaw int) *Scanner {
+func rotated(s *Scanner, pitch, roll, yaw int) *Scanner {
 	cosa := cos(yaw)
 	sina := sin(yaw)
 
@@ -104,41 +100,76 @@ func rotated(s *Scanner, roll, pitch, yaw int) *Scanner {
 			z: Azx*px + Azy*py + Azz*pz,
 		})
 	}
+
 	return rs
 }
 
-func countoverlap(s0, s1 *Scanner) int {
+func overlapmore(s0, s1 *Scanner, n int) bool {
 	cnt := 0
-	for i := range s0.pts {
-		for j := range s1.pts {
-			if s0.pts[i] == s1.pts[j] {
-				cnt++
+
+	Sort(s1.pts, pointLess)
+
+	i, j := 0, 0
+
+	for i < len(s0.pts) && j < len(s1.pts) {
+		p0, p1 := s0.pts[i], s1.pts[j]
+
+		switch {
+		case p0 == p1:
+			cnt++
+			if cnt >= n {
+				return true
 			}
+			i++
+			j++
+		case pointLess(p0, p1):
+			i++
+		default:
+			j++
 		}
 	}
-	return cnt
+
+	return false
 }
 
-func clone(s *Scanner) *Scanner {
-	return transposed(s, 0, s.pts[0])
+var allrots = [][3]int{
+	{0, 0, 0},
+	{0, 0, 180},
+	{0, 0, 270},
+	{0, 0, 90},
+	{0, 180, 0},
+	{0, 180, 180},
+	{0, 180, 270},
+	{0, 180, 90},
+	{0, 270, 0},
+	{0, 270, 180},
+	{0, 270, 270},
+	{0, 270, 90},
+	{0, 90, 0},
+	{0, 90, 180},
+	{0, 90, 270},
+	{0, 90, 90},
+	{270, 0, 0},
+	{270, 0, 180},
+	{270, 0, 270},
+	{270, 0, 90},
+	{90, 0, 0},
+	{90, 0, 180},
+	{90, 0, 270},
+	{90, 0, 90},
 }
 
 func align(acc *Scanner, s *Scanner) (bool, Point) {
-	for i := 0; i < len(acc.pts); i++ { // acc coord
-		for j := 0; j < len(s.pts); j++ { // s coord
-			for pitch := 0; pitch < 360; pitch += 90 {
-				for roll := 0; roll < 360; roll += 90 {
-					for yaw := 0; yaw < 360; yaw += 90 {
-						a := rotated(s, pitch, roll, yaw)
-						b := transposed(a, j, acc.pts[i])
-						d := countoverlap(acc, b)
-						if d >= 12 {
-							pf("FOUND %v!!!!\n", b.zero)
-							acc.pts = append(acc.pts, b.pts...)
-							simplify(acc)
-							return true, b.zero
-						}
-					}
+	for _, rot := range allrots {
+		rotS := rotated(s, rot[0], rot[1], rot[2])
+		for i := 0; i < len(acc.pts); i++ { // acc coord
+			for j := 0; j < len(s.pts); j++ { // s coord
+				transpose(rotS, j, acc.pts[i])
+				if overlapmore(acc, rotS, 12) {
+					pf("FOUND %v!!!!\n", rotS.zero)
+					acc.pts = append(acc.pts, rotS.pts...)
+					simplify(acc)
+					return true, rotS.zero
 				}
 			}
 		}
@@ -147,7 +178,7 @@ func align(acc *Scanner, s *Scanner) (bool, Point) {
 }
 
 func simplify(acc *Scanner) {
-	sort.Slice(acc.pts, byPoint(acc.pts))
+	Sort(acc.pts, pointLess)
 	newpts := []Point{acc.pts[0]}
 	for _, pt := range acc.pts {
 		if pt != newpts[len(newpts)-1] {
@@ -155,13 +186,6 @@ func simplify(acc *Scanner) {
 		}
 	}
 	acc.pts = newpts
-}
-
-func byPoint(pts []Point) func(i, j int) bool {
-	return func(i, j int) bool {
-		pi, pj := pts[i], pts[j]
-		return pointLess(pi, pj)
-	}
 }
 
 func pointLess(pa, pb Point) bool {
@@ -180,7 +204,6 @@ func dist(pa, pb Point) int {
 
 func main() {
 	groups := Input("19.txt", "\n\n", true)
-	pf("len %d\n", len(groups))
 
 	var scanners = []*Scanner{}
 
@@ -193,10 +216,14 @@ func main() {
 		}
 		scanners = append(scanners, s)
 	}
+	for i := range scanners {
+		scanners[i].id = i
+	}
 
 	aligned := make([]bool, len(scanners))
 	aligned[0] = true
-	acc := clone(scanners[0])
+	acc := rotated(scanners[0], 0, 0, 0)
+	Sort(acc.pts, pointLess)
 
 	tsp := make([]Point, len(scanners))
 
@@ -223,6 +250,7 @@ func main() {
 			break
 		}
 	}
+	Expect(315)
 	Sol(len(acc.pts))
 
 	maxd := 0
@@ -237,9 +265,7 @@ func main() {
 			}
 		}
 	}
+	Expect(13192)
 	Sol(maxd)
-	//pf("%v\n", transposed(scanners[1], 0, Point{ -618,-824,-621 }))
 
 }
-
-// {1 1 1} {2 2 2} {3 3 3} {3 1 2} {-6 -4 -5} {0 7 -8}

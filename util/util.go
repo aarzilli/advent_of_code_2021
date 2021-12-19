@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -157,13 +158,29 @@ func Input(path string, sep string, noempty bool) []string {
 }
 
 var part int = 1
+var expected []interface{}
+
+func Expect(v ...interface{}) {
+	// for refactoring
+	expected = v
+}
 
 func Sol(v ...interface{}) {
 	fmt.Printf("PART %d: ", part)
 	fmt.Println(v...)
+	if expected != nil {
+		if expected[len(expected)-1] != v[len(v)-1] {
+			panic("mismatch!")
+		}
+		expected = nil
+	}
 	fmt.Printf("copied to clipboard\n")
 	cmd := exec.Command("xclip", "-in", "-selection", "-primary")
 	cmd.Stdin = bytes.NewReader([]byte(fmt.Sprintf("%v", v[len(v)-1])))
 	cmd.Run()
 	part++
+}
+
+func Sort[T any](v []T, less func(T, T) bool) {
+	sort.Slice(v, func(i, j int) bool { return less(v[i], v[j]) })
 }
